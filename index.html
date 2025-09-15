@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>Deep Zoom Viewer — Stitched Image</title>
+  <title>Deep Zoom Viewer — Stitched Image (Zoomify)</title>
 
   <!-- Local OpenSeadragon + scalebar plugin -->
   <script src="openseadragon/openseadragon.min.js"></script>
@@ -16,40 +16,55 @@
 </head>
 <body>
   <div id="osd"></div>
-  <div class="hint">Mouse: drag to pan • wheel/ctrl+wheel to zoom • mini-map at bottom-right</div>
 
   <script>
     // --- Quick config ---
-    // Default DZI produced by your stitching script:
-    const DEFAULT_DZI = 'stitched_full.dzi'; // e.g., 'dzi/stitched_full.dzi' if you move it
+    // Folder containing ImageProperties.xml and TileGroup*/…
+    const DEFAULT_ZOOMIFY = 'stitched_full_zoomify/'; // ensure trailing slash
 
-    // Let URL param override: index.html?dzi=quarters/stitched_full.dzi
-    const params = new URLSearchParams(location.search);
-    const dziPath = params.get('dzi') || DEFAULT_DZI;
+    // Allow URL param override: index.html?z=relative/folder/
+    const params  = new URLSearchParams(location.search);
+    let tilesUrl  = params.get('z') || DEFAULT_ZOOMIFY;
+    if (tilesUrl && !tilesUrl.endsWith('/')) tilesUrl += '/';
 
-    // Scale: 8.0453 pixels per micrometer (µm) → pixels per meter for the scalebar plugin
+    // If your tiles are PNG, set FILE_FORMAT = 'png'
+    const FILE_FORMAT = 'jpg';     // 'jpg' or 'png'
+    const TILE_SIZE   = 256;       // must match the tiler setting
+
+    // Measured dimensions from your Zoomify export:
+    const Z_WIDTH  = 48438;
+    const Z_HEIGHT = 48733;
+
+    // Scale: 8.0453 pixels per micrometer (µm) → pixels per meter for scalebar
     const PX_PER_MICRON = 8.0453;
     const PX_PER_METER  = PX_PER_MICRON * 1e6;
 
     const viewer = OpenSeadragon({
       id: 'osd',
       prefixUrl: 'openseadragon/images/',   // path to OSD button icons
-      showNavigator: true,
-      navigatorPosition: 'BOTTOM_RIGHT',
+      showNavigator: false,
       animationTime: 0.9,
       blendTime: 0.2,
       springStiffness: 6.5,
       maxZoomPixelRatio: 2.5,
-      visibilityRatio: 1.0,
+      visibilityRatio: 0.5,
       minZoomLevel: 0,
-      gestureSettingsMouse: { clickToZoom: true, dblClickToZoom: true },
-      tileSources: dziPath                      // ← load the .dzi directly
+
+      // Zoomify tile source
+      tileSources: {
+        type: 'zoomifytileservice',
+        tilesUrl: tilesUrl,        // folder with ImageProperties.xml
+        width:  Z_WIDTH,           // avoids extra XML fetch
+        height: Z_HEIGHT,
+        tileSize: TILE_SIZE,
+        fileFormat: FILE_FORMAT    // ensures correct file extension
+      }
     });
 
-    // Add a scalebar (MAP mode uses pixelsPerMeter, so zoom level doesn't matter)
+    // Add a scalebar (MAP mode uses pixelsPerMeter)
     viewer.addHandler('open', () => {
       viewer.scalebar({
-        type: OpenSeadragon.ScalebarType.MAP,
+        type: OpenSeadragon.ScalebarType.MICROSCOPY,
         pixelsPerMeter: PX_PER_METER,                 // 8.0453 px/µm → 8,045,300 px/m
         location: OpenSeadragon.ScalebarLocation.BOTTOM_LEFT,
         xOffset: 12,
